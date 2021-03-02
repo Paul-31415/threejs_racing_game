@@ -51,7 +51,7 @@ export const InputPlugin: Plugin = {
             args: [keyboardState, keydown] as const,
             step: (kb, ke) => {
                 kb.add(ke.key);
-                console.log(ke);
+                //console.log(ke);
             }
         });
         world.addSystem(keydownSyst);

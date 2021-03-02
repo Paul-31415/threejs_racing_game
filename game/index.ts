@@ -115,7 +115,7 @@ document.body.appendChild(three_renderer.domElement);
 
     const b = new THREE.BufferGeometry()
     const pts: THREE.Vector3[] = [];
-    for (let x = -100; x <= 100; x++) {
+    /*for (let x = -100; x <= 100; x++) {
         for (let y = -100; y <= 100; y++) {
             const z1 = ter(x, y);
             const z2 = ter(x + 1, y);
@@ -128,7 +128,51 @@ document.body.appendChild(three_renderer.domElement);
                 new THREE.Vector3(x + 1, y, z2),
                 new THREE.Vector3(x + 1, y + 1, z4));
         }
+    }*/
+    const rd = 10000;
+    const rn = .25;
+    const angle = 2 * Math.PI / 256.5;
+    const hangle = angle;
+
+    // 2π/angle steps per circle, want mag^steps = 1+angle
+    // so mag = e^(log1p(angle)/steps)
+    const mag = Math.exp(angle * Math.log1p(angle) / 2 / Math.PI);
+    const mat = [mag * Math.cos(angle), -mag * Math.sin(angle), mag * Math.sin(angle), mag * Math.cos(angle)];
+    const hmat = [Math.cos(hangle), -Math.sin(hangle),
+    Math.sin(hangle), Math.cos(hangle)];
+    //spiral terrain		
+    const oldps: THREE.Vector3[] = [];
+    for (let i = 0; i < 4; i++) {
+        const x = [0, -1, 0, 1][i] * rn;
+        const y = [-1, 0, 1, 0][i] * rn;
+        oldps.push(new THREE.Vector3(x, y, ter(x, y)));
     }
+    pts.push(oldps[3], oldps[1], oldps[0],
+        oldps[1], oldps[3], oldps[2]);
+    let pi = 0;
+
+    for (let p = new THREE.Vector2(rn, rn); p.lengthSq() < rd * rd; p.set(p.x * mat[0] + p.y * mat[2], p.x * mat[1] + p.y * mat[3])) {
+        const z = ter(p.x, p.y);
+        const prev = oldps[oldps.length - 1];
+        const cur = new THREE.Vector3(p.x, p.y, z);
+        let old = oldps[pi];
+        //let next = oldps[pi + 1];
+        oldps.push(cur);
+        while ((old.x * hmat[0] + old.y * hmat[2]) * cur.y - (old.x * hmat[1] + old.y * hmat[3]) * cur.x < 0) {
+            let next = oldps[++pi];
+            pts.push(old, next, prev);
+            //console.log("adding inner triangle:");
+            //console.log({ a: old, b: next, c: prev });
+            old = next;
+            if (next === undefined) {
+                throw next;
+            }
+        }
+        //console.log("adding outer triangle:");
+        //console.log({ a: prev, b: old, c: cur });
+        pts.push(prev, old, cur);
+    }
+    console.log("added " + (pts.length / 3) + " triangles.");
     b.setFromPoints(pts);
     b.computeVertexNormals();
     const material = new THREE.MeshStandardMaterial({ color: 0x808080 });
