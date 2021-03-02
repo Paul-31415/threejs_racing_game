@@ -17,13 +17,25 @@ ts_library(
     ]
 )
 
+filegroup(
+    name = "static_files",
+    srcs = [
+        "index.html"
+    ]
+)
+
 nodejs_binary(
+
     name = "server_bin",
     entry_point = "server.ts",
     data = [
         ":server",
         "//game:browser_bundle",
-        "//game:static_files",
+        "//:static_files",
+        "//game:client_lib",
+        # For sourcemapping
+        "//game:sources",
+        "node_modules",
     ],
 )
 

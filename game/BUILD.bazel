@@ -4,11 +4,20 @@ load("@npm//@bazel/typescript:index.bzl", "ts_library")
 load("@npm//@bazel/esbuild:index.bzl", "esbuild")
 
 
+filegroup(
+    name = "sources",
+    srcs = glob(["**/*.ts"]),
+)
 
 ts_library(
     name = "client_lib",
-    srcs = ["index.ts"],
-    deps = [    
+    srcs = glob(["*.ts"]),
+    
+    deps = [
+        "@npm//three",
+        "@npm//@types/three",
+        "@npm//pixi.js",
+        "@npm//nova_ecs",
     ]
 )
 
@@ -18,7 +27,7 @@ esbuild(
     name = "browser_bundle",
     entry_point = "index.ts",
     target = "es2015",
-    minify = True,
+    minify = False,
     define = [
         "process.env.NODE_ENV=\"browser\""
     ],
@@ -31,13 +40,4 @@ esbuild(
     deps = [
         ":client_lib",
     ],
-)
-
-
-
-filegroup(
-    name = "static_files",
-    srcs = [
-        "index.html"
-    ]
 )
