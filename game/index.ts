@@ -124,7 +124,7 @@ function x_sdf(x: number, y: number, l: number): number {
     return Math.hypot(x - m, y - m);
 }
 const track_radius = 120;
-const road_width = 15;
+const road_width = 5;
 
 const road_sdf = function(x: number, y: number): number {
     x = Math.abs(x);
@@ -143,16 +143,18 @@ const road_stripe_df = function(x: number, y: number): number {
 
 const ter = function(x: number, y: number): number {
     let v = 0;
-    for (let i = 0.03; i < 3; i *= 2.1) {
+    for (let i = 0.01; i < 3; i *= 2.1) {
         v += (lposhash(x * i, y * i) / 32768 - 1) * .01 / Math.pow(i, 1.6);
     }
     const arcx = track_radius * Math.SQRT2;
     x = Math.abs(x);
     const x2 = x * x / track_radius / track_radius;
     const y2 = y * y / track_radius / track_radius;
-    const roadHeight = Math.tanh(x2 / 4) * ((x - arcx) * (x - arcx) + y * y) / track_radius / track_radius * 128 - x2 * 12 - y2 * 8;
-    const road_lerp = Math.max(0, Math.min(1, road_sdf(x, y) / 15));
-    return 5 * v * (road_lerp) + (1 - road_lerp) * roadHeight;
+    const cone = Math.hypot(x - arcx, y) - track_radius + road_width * .25;
+    const roadHeight = cone * x2 / 8;//(.5 + .5 * Math.tanh(x2 - .5)) * ((x - arcx) * (x - arcx) + y * y) / track_radius / track_radius * 32 - x2 * 2 - y2 * 1;
+    const road_lerp = .5 + .5 * Math.tanh(road_sdf(x, y) / road_width * 4 - 1);
+    const terrain_amplitude = 5 * (.5 + .5 * Math.tanh(Math.pow(Math.hypot(x, y) / track_radius, .5) - 2));
+    return terrain_amplitude * v * (road_lerp) + (1 - road_lerp) * roadHeight;
 }
 
 const tcol = function(x: number, y: number): THREE.Color {
@@ -164,7 +166,7 @@ const tcol = function(x: number, y: number): THREE.Color {
             return c.setRGB(1, 1, .5);
         }
     }
-    if (Math.abs(croad + road_width - 8) < .25) {
+    if (Math.abs(croad + road_width * .25) < .25) {
         return c.setRGB(1, 1, .5);
     }
     const l = (1 + Math.tanh(croad)) / 2
@@ -404,13 +406,13 @@ const carMovement = new System({
         } if (k.has('d')) {
             pmc.velocity.addScaledVector(z, t.delta_s * speed);
         } if (k.has('s')) {
-            pmc.angularVelocity.addScaledVector(y, t.delta_s * (0.3 - vforward / 15));
+            pmc.angularVelocity.addScaledVector(y, t.delta_s * (1.8 - vforward / 65));
         } if (k.has('f')) {
-            pmc.angularVelocity.addScaledVector(y, -t.delta_s * (0.3 - vforward / 15));
+            pmc.angularVelocity.addScaledVector(y, -t.delta_s * (1.8 - vforward / 65));
         } if (k.has('a')) {
-            pmc.angularVelocity.addScaledVector(y, t.delta_s * (0.3 - vforward / 3));
+            pmc.angularVelocity.addScaledVector(y, t.delta_s * (0.3 - vforward / 10));
         } if (k.has('g')) {
-            pmc.angularVelocity.addScaledVector(y, -t.delta_s * (0.3 - vforward / 3));
+            pmc.angularVelocity.addScaledVector(y, -t.delta_s * (0.3 - vforward / 10));
         } if (k.has('Shift')) {
             pmc.velocity.addScaledVector(y, -t.delta_s * speed);
         } if (k.has(' ')) {
@@ -428,7 +430,7 @@ const carMovement = new System({
         } if (k.has('r')) {
             o.applyQuaternion(new THREE.Quaternion(z.x, z.y, z.z, -100).normalize());
         }
-        pmc.velocity.z -= t.delta_s * 25;
+        pmc.velocity.z -= t.delta_s * 45;
         const tz = ter(o.position.x, o.position.y);
         const eps = 0.001;
         const tzx = ter(o.position.x + eps, o.position.y);
@@ -458,7 +460,7 @@ const playerRotate = new System({
     args: [Obj3dComponent, freecamMovementComponent, mousemove] as const,
     step: (o, pmc, m) => {
         const v = new THREE.Vector3(-m.movementY, -m.movementX, 0).applyQuaternion(o.quaternion);
-        o.applyQuaternion(new THREE.Quaternion(v.x, v.y, v.z, 1000).normalize());
+        o.applyQuaternion(new THREE.Quaternion(v.x, v.y, v.z, 500).normalize());
     }
 });
 world.addSystem(playerRotate);

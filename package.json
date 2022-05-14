@@ -5,9 +5,10 @@
     "devDependencies": {
         "@bazel/bazelisk": "latest",
         "@bazel/buildifier": "4.0.1",
-        "@bazel/esbuild": "^3.2.1",
+        "@bazel/concatjs": "5.4.2",
+        "@bazel/esbuild": "5.4.2",
         "@bazel/ibazel": "latest",
-        "@bazel/typescript": "^3.2.1",
+        "@bazel/typescript": "5.4.2",
         "@types/node": "^14.14.31",
         "nova_ecs": "^0.1.10",
         "pixi.js": "^5.3.8",
