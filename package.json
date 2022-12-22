@@ -3,25 +3,21 @@
     "version": "0.1.0",
     "private": true,
     "devDependencies": {
-        "@bazel/bazelisk": "latest",
-        "@bazel/buildifier": "4.0.1",
-        "@bazel/concatjs": "5.4.2",
-        "@bazel/esbuild": "5.4.2",
-        "@bazel/ibazel": "latest",
-        "@bazel/typescript": "5.4.2",
-        "@types/node": "^14.14.31",
-        "nova_ecs": "^0.1.10",
-        "pixi.js": "^5.3.8",
-        "typescript": "^4.2.2"
+        "@types/node": "^18.11.17",
+        "esbuild": "^0.16.10",
+        "nova_ecs": "^0.3.3",
+        "pixi.js": "^7.0.5",
+        "rimraf": "^3.0.2",
+        "typescript": "^4.9.4"
     },
     "scripts": {
-        "build": "bazel build //...",
-        "test": "bazel test //..."
+        "serve": "yarn esbuild --bundle game/index.ts --serve --servedir=game --sourcemap --resolve-extensions=.mjs,.js",
+        "build": "rimraf dist && mkdir dist && yarn esbuild --bundle game/index.ts --outfile=dist/index.js --sourcemap --minify --resolve-extensions=.mjs,.js && cp game/index.html dist"
     },
     "dependencies": {
-        "@types/three": "^0.125.3",
-        "fastify": "^3.12.0",
-        "fastify-static": "^4.0.0",
-        "three": "^0.126.0"
+        "@types/three": "^0.146.0",
+        "fastify": "^4.10.2",
+        "fastify-static": "^4.7.0",
+        "three": "^0.148.0"
     }
 }

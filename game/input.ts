@@ -1,13 +1,8 @@
 //AA
-import { World } from "nova_ecs/world";
-import { TimePlugin, TimeResource } from "nova_ecs/plugins/time_plugin";
-import { Resource } from "nova_ecs/resource";
-import { Component } from "nova_ecs/component";
-import { Provide } from "nova_ecs/provider";
-import { System } from "nova_ecs/system";
 import { EcsEvent } from "nova_ecs/events";
-import { Emit } from "nova_ecs/arg_types";
 import { Plugin } from "nova_ecs/plugin";
+import { Resource } from "nova_ecs/resource";
+import { System } from "nova_ecs/system";
 
 
 export const keydown = new EcsEvent<KeyboardEvent>();
@@ -16,7 +11,7 @@ export const mousemove = new EcsEvent<MouseEvent>();
 export const mousedown = new EcsEvent<MouseEvent>();
 export const mouseup = new EcsEvent<MouseEvent>();
 export const wheel = new EcsEvent<WheelEvent>();
-export const keyboardState = new Resource<Set<string>>({ name: "keyboard state", });
+export const keyboardState = new Resource<Set<string>>("keyboard state");
 export const InputPlugin: Plugin = {
     name: "inputs",
     build: (world) => {

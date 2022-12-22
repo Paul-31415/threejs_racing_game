@@ -1,16 +1,15 @@
 //
 //import * as PIXI from "pixi.js";
-import * as THREE from "three";
-import { World } from "nova_ecs/world";
-import { TimePlugin, TimeResource } from "nova_ecs/plugins/time_plugin";
-import { Resource } from "nova_ecs/resource";
-import { Component } from "nova_ecs/component";
-import { Provide } from "nova_ecs/provider";
-import { System } from "nova_ecs/system";
-import { EcsEvent } from "nova_ecs/events";
 import { Emit } from "nova_ecs/arg_types";
-import { InputPlugin, keyboardState, mousemove, wheel } from "./input";
-import { Entity, EntityBuilder } from "nova_ecs/entity";
+import { Component } from "nova_ecs/component";
+import { Entity } from "nova_ecs/entity";
+import { TimePlugin, TimeResource } from "nova_ecs/plugins/time_plugin";
+import { Provide } from "nova_ecs/provider";
+import { Resource } from "nova_ecs/resource";
+import { System } from "nova_ecs/system";
+import { World } from "nova_ecs/world";
+import * as THREE from "three";
+import { InputPlugin, keyboardState, mousemove, wheel } from "./input.js";
 
 console.log('hello');
 
@@ -471,7 +470,7 @@ three_camera.position.z = 5;
 Obj3dComponent
 function makePlayer(): Entity {
     three_camera.rotateX(Math.PI / 2);
-    return new EntityBuilder()
+    return new Entity()
         .addComponent(Obj3dComponent, three_camera)
         .addComponent(carMovementComponent, {
             velocity: new THREE.Vector3(0, 0, -0),
@@ -486,7 +485,6 @@ function makePlayer(): Entity {
             movespeed: 100,
             velocity: new THREE.Vector3(0, 0, 0),
         })
-        .build();
 }
 world.entities.set("player", makePlayer());
 
