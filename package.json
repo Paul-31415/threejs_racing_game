@@ -13,7 +13,7 @@
     },
     "scripts": {
         "serve": "yarn esbuild --bundle game/index.ts game/spiral_raster_geometry.ts --serve --servedir=game --sourcemap --resolve-extensions=.mjs,.js",
-        "build": "rimraf dist && mkdir dist && yarn esbuild --bundle game/index.ts --outfile=dist/index.js --sourcemap --minify --resolve-extensions=.mjs,.js && cp game/index.html dist"
+        "build": "rimraf dist && mkdir dist && yarn esbuild --bundle game/index.ts game/spiral_raster_geometry.ts --outdir=dist --sourcemap --minify --resolve-extensions=.mjs,.js && cp game/index.html dist"
     },
     "dependencies": {
         "@types/dat.gui": "^0.7.7",
