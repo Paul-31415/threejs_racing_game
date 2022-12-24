@@ -1,5 +1,6 @@
 {
     "name": "threejs_racing_game",
+    "type": "module",
     "version": "0.1.0",
     "private": true,
     "devDependencies": {
@@ -11,13 +12,17 @@
         "typescript": "^4.9.4"
     },
     "scripts": {
-        "serve": "yarn esbuild --bundle game/index.ts --serve --servedir=game --sourcemap --resolve-extensions=.mjs,.js",
+        "serve": "yarn esbuild --bundle game/index.ts game/spiral_raster_geometry.ts --serve --servedir=game --sourcemap --resolve-extensions=.mjs,.js",
         "build": "rimraf dist && mkdir dist && yarn esbuild --bundle game/index.ts --outfile=dist/index.js --sourcemap --minify --resolve-extensions=.mjs,.js && cp game/index.html dist"
     },
     "dependencies": {
+        "@types/dat.gui": "^0.7.7",
         "@types/three": "^0.146.0",
+        "comlink": "^4.3.1",
+        "dat.gui": "^0.7.9",
         "fastify": "^4.10.2",
         "fastify-static": "^4.7.0",
+        "immer": "^9.0.16",
         "three": "^0.148.0"
     }
 }

@@ -7,14 +7,27 @@ import { TimePlugin, TimeResource } from "nova_ecs/plugins/time_plugin";
 import { Provide } from "nova_ecs/provider";
 import { Resource } from "nova_ecs/resource";
 import { System } from "nova_ecs/system";
-import { World } from "nova_ecs/world";
+import { SingletonComponent, World } from "nova_ecs/world";
 import * as THREE from "three";
 import { InputPlugin, keyboardState, mousemove, wheel } from "./input.js";
+import { wrap } from "comlink";
+import { MeshWorker, ter, terrains } from "./interface.js";
+import { AsyncSystem } from "nova_ecs/async_system.js";
+import * as Dat from "dat.gui";
+
+const GUI = new Dat.GUI();
+const state = {terrain:"current"};
+GUI.add(state,"terrain",[... terrains.keys()]).onChange((s)=>{
+    console.log(state);
+});
+const grabMouse = {capture_mouse:function(){three_renderer.domElement.requestPointerLock();}};
+GUI.add(grabMouse,"capture_mouse");
+
 
 console.log('hello');
 
 //from getting started in the docs
-var fov = 75;
+var fov = 90;
 let three_scene = new THREE.Scene();
 let three_renderer = new THREE.WebGLRenderer({ alpha: false });
 three_renderer.setSize(window.innerWidth, window.innerHeight);
@@ -34,9 +47,6 @@ for (let i = 0; i < 4; i++) {
 
     three_scene.add(l);
 }
-
-
-
 
 
 
@@ -63,7 +73,9 @@ document.body.appendChild(three_renderer.domElement);
 
 //app.stage.addChild(view);
 
-
+/*document?.addEventListener("pointerdown",(ev:MouseEvent)=>{
+    three_renderer.domElement.requestPointerLock();
+});*/
 
 //const fpsMeter = new PIXI.Text("FPS:__");
 
@@ -87,179 +99,27 @@ document.body.appendChild(three_renderer.domElement);
 
 //test terrain
 
-const rrca = function(x: number): number {
-    return ((x & 0xff) >> 1) | ((x & 1) << 7);
-}
-const rand16 = function(s: number): number {
-    let a = s & 0xff;
-    let b = (s >> 8) & 0xff;
-    b = (rrca((a ^ 0xff) - 1) + b) & 0xff;
-    a = ((b - a) ^ 162) & 0xff;
-    return a | (b << 8);
-}
-const poshash = function(x: number, y: number) {
-    let v = ((x & 0xff) << 8) | (y & 0xff);
-    for (let i = 0; i < 4; i++) {
-        v = rand16(v);
-    }
-    return v;
-}
-const lposhash = function(x: number, y: number) {
-    const v = poshash(x, y);
-    const vx = poshash(x + 1, y);
-    const vy = poshash(x, y + 1);
-    const vxy = poshash(x + 1, y + 1);
-    const ax = ((x % 1) + 1) % 1;
-    const ay = ((y % 1) + 1) % 1;
-    return (v * (1 - ax) + ax * vx) * (1 - ay) + ay * (vy * (1 - ax) + ax * vxy);
-}
 
 
+const worker = new Worker("spiral_raster_geometry.js");
+const api = wrap<MeshWorker>(worker);
 
-function x_sdf(x: number, y: number, l: number): number {
-    x = Math.abs(x);
-    y = Math.abs(y);
-    const m = Math.min(x + y, l) / 2;
-    return Math.hypot(x - m, y - m);
-}
-const track_radius = 120;
-const road_width = 5;
-
-const road_sdf = function(x: number, y: number): number {
-    x = Math.abs(x);
-    y = Math.abs(y);
-    const arcx = track_radius * Math.SQRT2;
-    if (x + y > arcx) {
-        const r = Math.hypot(x - arcx, y);
-        return Math.abs(r - track_radius) - road_width;
-    }
-    return Math.abs(x - y) * Math.SQRT1_2 - road_width;
-}
-const road_stripe_df = function(x: number, y: number): number {
-    const arcx = track_radius * Math.SQRT2;
-    return Math.abs(x) * Math.SQRT2 - Math.atan2(Math.abs(y), Math.abs(x) - arcx);
-}
-
-const ter = function(x: number, y: number): number {
-    let v = 0;
-    for (let i = 0.01; i < 3; i *= 2.1) {
-        v += (lposhash(x * i, y * i) / 32768 - 1) * .01 / Math.pow(i, 1.6);
-    }
-    const arcx = track_radius * Math.SQRT2;
-    x = Math.abs(x);
-    const x2 = x * x / track_radius / track_radius;
-    const y2 = y * y / track_radius / track_radius;
-    const cone = Math.hypot(x - arcx, y) - track_radius + road_width * .25;
-    const roadHeight = cone * x2 / 8;//(.5 + .5 * Math.tanh(x2 - .5)) * ((x - arcx) * (x - arcx) + y * y) / track_radius / track_radius * 32 - x2 * 2 - y2 * 1;
-    const road_lerp = .5 + .5 * Math.tanh(road_sdf(x, y) / road_width * 4 - 1);
-    const terrain_amplitude = 5 * (.5 + .5 * Math.tanh(Math.pow(Math.hypot(x, y) / track_radius, .5) - 2));
-    return terrain_amplitude * v * (road_lerp) + (1 - road_lerp) * roadHeight;
-}
-
-const tcol = function(x: number, y: number): THREE.Color {
-    let croad = road_sdf(x, y);
-    let aroad = road_stripe_df(x, y);
-    const c = new THREE.Color();
-    if (croad + road_width < .25) {
-        if ((((aroad % 30) + 30) % 30) > 15) {
-            return c.setRGB(1, 1, .5);
-        }
-    }
-    if (Math.abs(croad + road_width * .25) < .25) {
-        return c.setRGB(1, 1, .5);
-    }
-    const l = (1 + Math.tanh(croad)) / 2
-    return c.setRGB(.2 + .3 * l, .2 + .3 * l, .2 + .3 * l);
-}
-{
-    const b = new THREE.BufferGeometry()
-    const pts: THREE.Vector3[] = [];
-    /*for (let x = -100; x <= 100; x++) {
-        for (let y = -100; y <= 100; y++) {
-            const z1 = ter(x, y);
-            const z2 = ter(x + 1, y);
-            const z3 = ter(x, y + 1);
-            const z4 = ter(x + 1, y + 1);
-            pts.push(new THREE.Vector3(x, y, z1),
-                new THREE.Vector3(x + 1, y, z2),
-                new THREE.Vector3(x, y + 1, z3),
-                new THREE.Vector3(x, y + 1, z3),
-                new THREE.Vector3(x + 1, y, z2),
-                new THREE.Vector3(x + 1, y + 1, z4));
-        }
-    }*/
-    const start = performance.now();
-
-    const rd = 1000;
-    const rn = 1 / 16;
-    const aangle = 2 * Math.PI / 1024.5;
-    const near_res = 1 / 4;
-    const res_transition_dist = 32;
-    const angular_resolution = function(r: number): number {
-        //want something that gracefully transitions from 1/r to 1
-        //return Math.pow(r / near_res, Math.min(0, r / res_transition_dist - 1)) * aangle;
-        //old version
-        return Math.max(aangle, near_res / r);
-    }
-    // 2π/angle steps per circle, want mag^steps = 1+angle
-    // so mag = e^(log1p(angle)/steps)
-    let angle = angular_resolution(rn);
-    let mag = Math.exp(angle * Math.log1p(angle) / 2 / Math.PI);
-    let mat = [mag * Math.cos(angle), -mag * Math.sin(angle), mag * Math.sin(angle), mag * Math.cos(angle)];
-
-    //spiral terrain		
-    const oldps: THREE.Vector3[] = [];
-    for (let i = 0; i < 4; i++) {
-        const x = [0, -1, 0, 1][i] * rn;
-        const y = [-1, 0, 1, 0][i] * rn;
-        oldps.push(new THREE.Vector3(x, y, ter(x, y)));
-    }
-    pts.push(oldps[3], oldps[1], oldps[0],
-        oldps[1], oldps[3], oldps[2]);
-    let pi = 0;
-
-    for (let p = new THREE.Vector2(rn, rn); p.lengthSq() < rd * rd; p.set(p.x * mat[0] + p.y * mat[2], p.x * mat[1] + p.y * mat[3])) {
-        angle = angular_resolution(p.length());
-        mag = Math.exp(angle * Math.log1p(angle) / 2 / Math.PI);
-        mat = [mag * Math.cos(angle), -mag * Math.sin(angle), mag * Math.sin(angle), mag * Math.cos(angle)];
-
-        const z = ter(p.x, p.y);
-        const prev = oldps[oldps.length - 1];
-        const cur = new THREE.Vector3(p.x, p.y, z);
-        let old = oldps[pi];
-        //let next = oldps[pi + 1];
-        oldps.push(cur);
-        while ((old.x * mat[0] + old.y * mat[2]) * cur.y - (old.x * mat[1] + old.y * mat[3]) * cur.x < 0) {
-            let next = oldps[++pi];
-            pts.push(old, next, prev);
-            //console.log("adding inner triangle:");
-            //console.log({ a: old, b: next, c: prev });
-            old = next;
-            if (next === undefined) {
-                throw next;
-            }
-        }
-        //console.log("adding outer triangle:");
-        //console.log({ a: prev, b: old, c: cur });
-        pts.push(prev, old, cur);
-    }
-    b.setFromPoints(pts);
-    b.computeVertexNormals();
-    const end = performance.now();
-    console.log("added " + (pts.length / 3) + " triangles. time:" + (end - start));
-
+const grund_geo = new THREE.BufferGeometry();
+let grund:THREE.Mesh;
+api.spiral_raster_geometry(state.terrain,{x:0,y:0,z:0}).then((v)=>{
     const material = new THREE.MeshStandardMaterial({ vertexColors: true });
-    console.log("coloring triangles");
-    const count = b.attributes.position.count;
-    b.setAttribute('color', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
-    for (let i = 0; i < count; i++) {
-        const col = tcol(b.attributes.position.getX(i), b.attributes.position.getY(i));
-        b.attributes.color.setXYZ(i, col.r, col.g, col.b);
+    const b = grund_geo;
+    for (let k of Object.keys( v[0] )){
+        const attribute = new THREE.BufferAttribute(
+	    v[0][k],
+	    v[1][k],
+	    false
+	);
+        b.setAttribute(k,attribute);
     }
-
-    const grund = new THREE.Mesh(b, material);
+    grund = new THREE.Mesh(b, material);
     three_scene.add(grund);
-}
+}); 
 
 
 
@@ -309,6 +169,61 @@ const CubeESpinny = new System({
     }
 });
 //world.addSystem(CubeESpinny);
+
+
+
+
+/*const terrainRegen = new AsyncSystem({
+    name: "terrain render",
+    args: [Obj3dComponent] as const,
+    async step(o){
+        const v = await api.spiral_raster_geometry({x:o.position.x,y:o.position.y,z:o.position.z});
+        const material = new THREE.MeshStandardMaterial({ vertexColors: true });
+        const b = grund_geo;
+        for (let k of Object.keys( v[0] )){
+            const attribute = new THREE.BufferAttribute(
+	        v[0][k],
+	        v[1][k],
+	        false
+	    );
+            b.setAttribute(k,attribute);
+        }
+        grund.position.x = o.position.x;
+        grund.position.y = o.position.y;
+    },
+    exclusive:true,
+});
+world.addSystem(terrainRegen);
+*/
+
+//hack
+let terrain_regen = true;
+function regen_terrain(pos:THREE.Vector3){
+    const o = {x:pos.x,y:pos.y,z:pos.z};
+    if (terrain_regen) {
+        terrain_regen = false;
+        api.spiral_raster_geometry(state.terrain,{x:o.x,y:o.y,z:o.z}).then((v)=>{
+            //const material = new THREE.MeshStandardMaterial({ vertexColors: true });
+            const b = grund_geo;
+            for (let k of Object.keys( v[0] )){
+                const attribute = new THREE.BufferAttribute(
+	            v[0][k],
+	            v[1][k],
+	            false
+	        );
+                b.setAttribute(k,attribute);
+            }
+            grund.position.x = o.x;
+            grund.position.y = o.y;
+            terrain_regen = true;
+        });
+    }
+}
+
+
+
+
+
 
 
 
@@ -382,7 +297,8 @@ const carMovement = new System({
     name: "freecar movement",
     args: [TimeResource, Obj3dComponent, carMovementComponent, keyboardState] as const,
     step: (t, o, pmc, k) => {
-
+        const ter = terrains.get(state.terrain)??((x,y)=>0);
+        regen_terrain(o.position);
         if (k.has("o")) {
             pmc.enabled = true;
         } if (k.has('p')) {
@@ -465,7 +381,7 @@ const playerRotate = new System({
 world.addSystem(playerRotate);
 
 
-let three_camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 0.1, 1000);
+let three_camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 0.1, 10000);
 three_camera.position.z = 5;
 Obj3dComponent
 function makePlayer(): Entity {
